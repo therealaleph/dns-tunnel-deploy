@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 
 # Global variables
 DNSTT_BASE_URL="https://dnstt.network"
-SCRIPT_URL="https://raw.githubusercontent.com/bugfloyd/dnstt-deploy/main/dnstt-deploy.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/net2share/dnstt-deploy/main/dnstt-deploy.sh"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/dnstt"
 SYSTEMD_DIR="/etc/systemd/system"

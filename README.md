@@ -55,7 +55,7 @@ Go into your name registrar's configuration panel and add these records:
 
 **One-command installation:**
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/bugfloyd/dnstt-deploy/main/dnstt-deploy.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/net2share/dnstt-deploy/main/dnstt-deploy.sh)
 ```
 
 This command will:
@@ -237,7 +237,7 @@ dnstt-deploy
 
 **Method 2: Re-run the curl command**
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/bugfloyd/dnstt-deploy/main/dnstt-deploy.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/net2share/dnstt-deploy/main/dnstt-deploy.sh)
 # The script will detect and install updates automatically
 ```
 
@@ -328,8 +328,7 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/bugfloyd/dnstt-deploy/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/bugfloyd/dnstt-deploy/discussions)
+- **Issues**: [GitHub Issues](https://github.com/net2share/dnstt-deploy/issues)
 - **Official project website**: [dnstt.network](https://dnstt.network)
 
 ---

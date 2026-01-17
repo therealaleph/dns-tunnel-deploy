@@ -56,7 +56,7 @@
 
 **نصب با یک دستور:**
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/bugfloyd/dnstt-deploy/main/dnstt-deploy.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/net2share/dnstt-deploy/main/dnstt-deploy.sh)
 ```
 
 این دستور موارد زیر را انجام خواهد داد:
@@ -238,7 +238,7 @@ dnstt-deploy
 
 **روش 2: اجرای مجدد دستور curl**
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/bugfloyd/dnstt-deploy/main/dnstt-deploy.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/net2share/dnstt-deploy/main/dnstt-deploy.sh)
 # اسکریپت به طور خودکار بروزرسانی‌ها را تشخیص داده و نصب خواهد کرد
 ```
 
@@ -329,8 +329,7 @@ sudo journalctl -u dnstt-server -f --no-pager # نظارت بر لاگ‌ها ب
 
 ## پشتیبانی
 
-- **مشکلات**: [GitHub Issues](https://github.com/bugfloyd/dnstt-deploy/issues)
-- **بحث‌ها**: [GitHub Discussions](https://github.com/bugfloyd/dnstt-deploy/discussions)
+- **مشکلات**: [GitHub Issues](https://github.com/net2share/dnstt-deploy/issues)
 - **وب‌سایت رسمی پروژه**: [dnstt.network](https://dnstt.network)
 
 ---
