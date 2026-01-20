@@ -8,6 +8,8 @@ import json
 import base64
 import re
 import time
+import socket
+import subprocess
 
 
 class DNSTTManager:
@@ -163,6 +165,89 @@ class DNSTTManager:
                     
         return output, error, exit_code
         
+    def verify_ns_domain(self, ns_domain, server_ip):
+        self.log(f"Verifying NS domain: {ns_domain}", "info")
+        self.log(f"Expected server IP: {server_ip}", "info")
+        
+        try:
+            result = subprocess.run(
+                ["nslookup", "-type=NS", ns_domain],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            output = result.stdout + result.stderr
+            self.log(f"NS lookup result:\n{output}", "info")
+            
+            ns_match = re.search(r'nameserver\s*=\s*(\S+)', output, re.IGNORECASE)
+            if not ns_match:
+                ns_match = re.search(r'name\s*=\s*(\S+)', output, re.IGNORECASE)
+            
+            if ns_match:
+                nameserver = ns_match.group(1).rstrip('.')
+                self.log(f"Found nameserver: {nameserver}", "info")
+                
+                try:
+                    ns_ip = socket.gethostbyname(nameserver)
+                    self.log(f"Nameserver {nameserver} resolves to: {ns_ip}", "info")
+                    
+                    if ns_ip == server_ip:
+                        self.log(f"DNS verification PASSED: {nameserver} -> {ns_ip} matches server IP", "success")
+                        return True, f"NS record verified: {nameserver} -> {ns_ip}"
+                    else:
+                        return False, f"DNS mismatch: {nameserver} resolves to {ns_ip}, but server IP is {server_ip}"
+                except socket.gaierror as e:
+                    return False, f"Cannot resolve nameserver {nameserver}: {e}"
+            else:
+                self.log("No NS record found, trying direct A record lookup...", "warning")
+                
+            parts = ns_domain.split('.')
+            if len(parts) >= 2:
+                base_domain = '.'.join(parts[-2:])
+                ns_hostname_patterns = [
+                    f"ns.{base_domain}",
+                    f"dns.{base_domain}",
+                    f"tns.{base_domain}",
+                    f"ns1.{base_domain}",
+                    base_domain
+                ]
+                
+                for hostname in ns_hostname_patterns:
+                    try:
+                        resolved_ip = socket.gethostbyname(hostname)
+                        self.log(f"Trying {hostname} -> {resolved_ip}", "info")
+                        if resolved_ip == server_ip:
+                            self.log(f"DNS verification PASSED via {hostname}", "success")
+                            return True, f"Verified via {hostname} -> {resolved_ip}"
+                    except socket.gaierror:
+                        continue
+                        
+            try:
+                direct_ip = socket.gethostbyname(ns_domain)
+                self.log(f"Direct lookup {ns_domain} -> {direct_ip}", "info")
+                if direct_ip == server_ip:
+                    self.log("DNS verification PASSED via direct lookup", "success")
+                    return True, f"Direct lookup verified: {ns_domain} -> {direct_ip}"
+            except socket.gaierror:
+                pass
+                
+            return False, f"Cannot verify NS domain {ns_domain} points to server {server_ip}. Please check your DNS configuration."
+            
+        except subprocess.TimeoutExpired:
+            return False, "DNS lookup timed out"
+        except FileNotFoundError:
+            self.log("nslookup not found, trying alternative method...", "warning")
+            try:
+                resolved_ip = socket.gethostbyname(ns_domain)
+                if resolved_ip == server_ip:
+                    return True, f"Verified: {ns_domain} -> {resolved_ip}"
+                else:
+                    return False, f"DNS mismatch: {ns_domain} resolves to {resolved_ip}, expected {server_ip}"
+            except socket.gaierror as e:
+                return False, f"Cannot resolve {ns_domain}: {e}"
+        except Exception as e:
+            return False, f"DNS verification error: {str(e)}"
+        
     def start_deployment(self):
         ns_domain = self.ns_entry.get().strip()
         
@@ -180,7 +265,23 @@ class DNSTTManager:
             self.log("Starting DNSTT deployment...", "info")
             self.log("=" * 60, "info")
             
-            self.log("Step 1: Creating no-login user with random credentials...", "info")
+            self.log("Step 1: Verifying DNS configuration...", "info")
+            dns_valid, dns_message = self.verify_ns_domain(self.ns_domain, self.server_ip)
+            
+            if not dns_valid:
+                self.log(f"DNS VERIFICATION FAILED: {dns_message}", "error")
+                self.log("", "error")
+                self.log("Please ensure your DNS is configured correctly:", "error")
+                self.log(f"  1. Create an A record pointing to {self.server_ip}", "error")
+                self.log(f"  2. Create an NS record for {self.ns_domain} pointing to that A record", "error")
+                self.log("  3. Wait for DNS propagation (can take up to 24 hours)", "error")
+                self.root.after(0, lambda: messagebox.showerror("DNS Verification Failed", f"{dns_message}\n\nPlease configure your DNS records properly before deployment."))
+                self.root.after(0, lambda: self.deploy_btn.config(state=tk.NORMAL))
+                return
+                
+            self.log(f"DNS verification passed: {dns_message}", "success")
+            
+            self.log("Step 2: Creating no-login user with random credentials...", "info")
             self.nologin_user = "dns" + self.generate_random_string(6)
             self.nologin_pass = self.generate_random_password(15)
             
@@ -217,7 +318,7 @@ class DNSTTManager:
             self.root.after(0, lambda: self.nologin_user_label.config(text=self.nologin_user))
             self.root.after(0, lambda: self.nologin_pass_label.config(text=self.nologin_pass))
             
-            self.log("Step 2: Downloading and running dnstt-deploy script...", "info")
+            self.log("Step 3: Downloading and running dnstt-deploy script...", "info")
             
             download_cmd = "curl -Ls https://raw.githubusercontent.com/net2share/dnstt-deploy/main/dnstt-deploy.sh -o /tmp/dnstt-deploy.sh && chmod +x /tmp/dnstt-deploy.sh"
             output, error, exit_code = self.exec_command(download_cmd)
@@ -227,7 +328,7 @@ class DNSTTManager:
                 
             self.log("Script downloaded successfully", "success")
             
-            self.log(f"Step 3: Running dnstt-deploy with NS domain: {self.ns_domain}", "info")
+            self.log(f"Step 4: Running dnstt-deploy with NS domain: {self.ns_domain}", "info")
             
             deploy_cmd = f"echo -e '{self.ns_domain}\\n\\n2\\n' | bash /tmp/dnstt-deploy.sh 2>&1"
             
@@ -257,7 +358,7 @@ class DNSTTManager:
             if "SETUP COMPLETED SUCCESSFULLY" not in full_output and exit_code != 0:
                 self.log("Deployment may have encountered issues, checking status...", "warning")
                 
-            self.log("Step 4: Extracting public key...", "info")
+            self.log("Step 5: Extracting public key...", "info")
             
             pubkey_match = re.search(r'Public Key Content:\s*\n\s*([a-f0-9]{64})', full_output)
             
@@ -284,7 +385,7 @@ class DNSTTManager:
                     
             self.root.after(0, lambda: self.pubkey_label.config(text=self.pubkey))
             
-            self.log("Step 5: Verifying dnstt-server service...", "info")
+            self.log("Step 6: Verifying dnstt-server service...", "info")
             status_cmd = "systemctl status dnstt-server --no-pager"
             output, _, _ = self.exec_command(status_cmd)
             
@@ -294,7 +395,7 @@ class DNSTTManager:
                 self.log("dnstt-server may not be running, checking...", "warning")
                 self.exec_command("systemctl start dnstt-server")
                 
-            self.log("Step 6: Generating DNS URI...", "info")
+            self.log("Step 7: Generating DNS URI...", "info")
             self.generate_dns_uri()
             
             self.log("=" * 60, "success")
